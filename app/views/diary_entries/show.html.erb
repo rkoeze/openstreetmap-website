@@ -39,7 +39,7 @@
   <% if current_user %>
     <h3 id="newcomment"><%= t ".leave_a_comment" %></h3>
 
-    <%= bootstrap_form_for @entry.comments.new, :url => comment_diary_entry_path(@entry.user, @entry) do |f| %>
+    <%= bootstrap_form_for @entry.comments.new, :url => diary_comments_path(@entry.user, @entry) do |f| %>
       <%= f.richtext_field :body, :cols => 80, :rows => 20, :hide_label => true %>
       <%= f.primary %>
     <% end %>

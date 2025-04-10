@@ -17,7 +17,7 @@ class Ability
       can :read, ChangesetComment
       can [:confirm, :confirm_resend, :confirm_email], :confirmation
       can [:read, :rss], DiaryEntry
-      can :read, DiaryComment
+      can [:read, :update], DiaryComment
       can [:index], Note
       can [:create, :update], :password
       can :read, Redaction
@@ -42,7 +42,7 @@ class Ability
         can :read, :dashboard
         can [:create, :subscribe, :unsubscribe], DiaryEntry
         can :update, DiaryEntry, :user => user
-        can [:create], DiaryComment
+        can :create, DiaryComment
         can [:show, :create, :destroy], Follow
         can [:read, :create, :destroy], Message
         can [:close, :reopen], Note
@@ -54,7 +54,8 @@ class Ability
         can [:read, :create, :destroy], UserMute
 
         if user.moderator?
-          can [:hide, :unhide], [DiaryEntry, DiaryComment]
+          can [:hide, :unhide], DiaryEntry
+          can :update, DiaryComment
           can [:read, :resolve, :ignore, :reopen], Issue
           can :create, IssueComment
           can [:create, :update, :destroy], Redaction
@@ -65,7 +66,8 @@ class Ability
         end
 
         if user.administrator?
-          can [:hide, :unhide], [DiaryEntry, DiaryComment]
+          can [:hide, :unhide], DiaryEntry
+          can :update, DiaryComment
           can [:read, :resolve, :ignore, :reopen], Issue
           can :create, IssueComment
 

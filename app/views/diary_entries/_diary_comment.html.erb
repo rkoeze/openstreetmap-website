@@ -10,14 +10,20 @@
     </p>
 
     <div class="richtext text-break"><%= diary_comment.body.to_html %></div>
-    <% if can? :hide, DiaryComment %>
       <span>
         <% if diary_comment.visible? %>
-          <%= link_to t(".hide_link"), hide_diary_comment_path(diary_comment), :method => :post, :data => { :confirm => t(".confirm") } %>
+          <%= button_to t(".hide_link"),
+              diary_comment_path(diary_comment.user, diary_comment),
+              method: :patch,
+              params: { diary_comment: { visible: false, diary_comment_id: diary_comment.id } },
+              data: { confirm: t(".confirm") } %>
         <% else %>
-          <%= link_to t(".unhide_link"), unhide_diary_comment_path(diary_comment), :method => :post, :data => { :confirm => t(".confirm") } %>
+          <%= button_to t(".hide_link"),
+              diary_comment_path(diary_comment.user, diary_comment),
+              method: :patch,
+              params: { diary_comment: { visible: true, diary_comment_id: diary_comment.id } },
+              data: { confirm: t(".confirm") } %>
         <% end %>
       </span>
-    <% end %>
   </div>
 </div>

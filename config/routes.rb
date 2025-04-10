@@ -285,9 +285,12 @@ OpenStreetMap::Application.routes.draw do
   end
   match "/user/:display_name/diary/:id/subscribe" => "diary_entries#subscribe", :via => [:get, :post], :as => :diary_entry_subscribe, :id => /\d+/
   match "/user/:display_name/diary/:id/unsubscribe" => "diary_entries#unsubscribe", :via => [:get, :post], :as => :diary_entry_unsubscribe, :id => /\d+/
-  post "/user/:display_name/diary/:id/comments" => "diary_comments#create", :id => /\d+/, :as => :comment_diary_entry
-  post "/diary_comments/:comment/hide" => "diary_comments#hide", :comment => /\d+/, :as => :hide_diary_comment
-  post "/diary_comments/:comment/unhide" => "diary_comments#unhide", :comment => /\d+/, :as => :unhide_diary_comment
+
+  scope "/user/:display_name" do
+    resources :diary, :only => [] do
+      resources :comments, :only => [:create, :update], :controller => "diary_comments"
+    end
+  end
 
   # user pages
   get "/user/terms", :to => redirect(:path => "/account/terms")
