@@ -735,7 +735,7 @@ DEPENDENCIES
   i18n-tasks
   image_optim_rails
   image_processing
-  jbuilder (~> 2.7)
+  jbuilder
   jquery-rails
   json
   jwt
