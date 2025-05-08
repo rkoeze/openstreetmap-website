@@ -48,7 +48,16 @@
 
 class User < ApplicationRecord
   require "digest"
-  include AASM
+
+  include User::Roleable
+  include User::Statusable
+  include User::Spammable
+  include User::RateLimitable
+  include User::Deletable
+  include User::Languages
+  include User::Purgeable
+  include User::Oauth
+  include User::Authenticatable
 
   has_many :traces, -> { where(:visible => true) }
   has_many :diary_entries, -> { order(:created_at => :desc) }, :inverse_of => :user
@@ -70,10 +79,6 @@ class User < ApplicationRecord
   has_many :note_subscriptions, :class_name => "NoteSubscription"
   has_many :subscribed_notes, :through => :note_subscriptions, :source => :note
 
-  has_many :oauth2_applications, :class_name => Doorkeeper.config.application_model.name, :as => :owner
-  has_many :access_grants, :class_name => Doorkeeper.config.access_grant_model.name, :foreign_key => :resource_owner_id
-  has_many :access_tokens, :class_name => Doorkeeper.config.access_token_model.name, :foreign_key => :resource_owner_id
-
   has_many :blocks, :class_name => "UserBlock"
   has_many :blocks_created, :class_name => "UserBlock", :foreign_key => :creator_id, :inverse_of => :creator
   has_many :blocks_revoked, :class_name => "UserBlock", :foreign_key => :revoker_id, :inverse_of => :revoker
@@ -88,8 +93,6 @@ class User < ApplicationRecord
 
   has_many :reports
 
-  scope :visible, -> { where(:status => %w[pending active confirmed]) }
-  scope :active, -> { where(:status => %w[active confirmed]) }
   scope :identifiable, -> { where(:data_public => true) }
 
   has_one_attached :avatar, :service => Settings.avatar_storage
@@ -149,113 +152,8 @@ class User < ApplicationRecord
     display_name
   end
 
-  def self.authenticate(options)
-    if options[:username] && options[:password]
-      user = find_by("email = ? OR display_name = ?", options[:username].strip, options[:username])
-
-      if user.nil?
-        users = where("LOWER(email) = LOWER(?) OR LOWER(NORMALIZE(display_name, NFKC)) = LOWER(NORMALIZE(?, NFKC))", options[:username].strip, options[:username])
-
-        user = users.first if users.count == 1
-      end
-
-      if user && PasswordHash.check(user.pass_crypt, user.pass_salt, options[:password])
-        if PasswordHash.upgrade?(user.pass_crypt, user.pass_salt)
-          user.pass_crypt, user.pass_salt = PasswordHash.create(options[:password])
-          user.save
-        end
-      else
-        user = nil
-      end
-    end
-
-    if user &&
-       (user.status == "deleted" ||
-         (user.status == "pending" && !options[:pending]) ||
-         (user.status == "suspended" && !options[:suspended]))
-      user = nil
-    end
-
-    user
-  end
-
-  aasm :column => :status, :no_direct_assignment => true do
-    state :pending, :initial => true
-    state :active
-    state :confirmed
-    state :suspended
-    state :deleted
-
-    # A normal account is active
-    event :activate do
-      transitions :from => :pending, :to => :active
-    end
-
-    # Used in test suite, not something that we would normally need to do.
-    if Rails.env.test?
-      event :deactivate do
-        transitions :from => :active, :to => :pending
-      end
-    end
-
-    # To confirm an account is used to override the spam scoring
-    event :confirm do
-      transitions :from => [:pending, :active, :suspended], :to => :confirmed
-    end
-
-    # To unconfirm an account is to make it subject to future spam scoring again
-    event :unconfirm do
-      transitions :from => :confirmed, :to => :active
-    end
-
-    # Accounts can be automatically suspended by spam_check
-    event :suspend do
-      transitions :from => [:pending, :active], :to => :suspended
-    end
-
-    # Unsuspending an account moves it back to active without overriding the spam scoring
-    event :unsuspend do
-      transitions :from => :suspended, :to => :active
-    end
-
-    # Mark the account as deleted but keep all data intact
-    event :hide do
-      transitions :from => [:pending, :active, :confirmed, :suspended], :to => :deleted
-    end
-
-    event :unhide do
-      transitions :from => [:deleted], :to => :active
-    end
-
-    # Mark the account as deleted and remove personal data
-    event :soft_destroy do
-      before do
-        revoke_authentication_tokens
-        remove_personal_data
-      end
-
-      transitions :from => [:pending, :active, :confirmed, :suspended], :to => :deleted
-    end
-  end
-
   def description
     RichText.new(self[:description_format], self[:description])
-  end
-
-  def languages
-    attribute_present?(:languages) ? self[:languages].split(/ *[, ] */) : []
-  end
-
-  def languages=(languages)
-    self[:languages] = languages.join(",")
-  end
-
-  def preferred_language
-    languages.find { |l| Language.exists?(:code => l) }
-  end
-
-  def preferred_languages
-    @preferred_languages ||= Locale.list(languages)
   end
 
   def home_location?
@@ -288,107 +186,10 @@ class User < ApplicationRecord
   end
 
   ##
-  # returns true if a user is visible
-  def visible?
-    %w[pending active confirmed].include? status
-  end
-
-  ##
-  # returns true if a user is active
-  def active?
-    %w[active confirmed].include? status
-  end
-
-  ##
-  # returns true if the user has the moderator role, false otherwise
-  def moderator?
-    role? "moderator"
-  end
-
-  ##
-  # returns true if the user has the administrator role, false otherwise
-  def administrator?
-    role? "administrator"
-  end
-
-  ##
-  # returns true if the user has the importer role, false otherwise
-  def importer?
-    role? "importer"
-  end
-
-  ##
-  # returns true if the user has the requested role
-  def role?(role)
-    roles.any? { |r| r.role == role }
-  end
-
-  ##
   # returns the first active block which would require users to view
   # a message, or nil if there are none.
   def blocked_on_view
     blocks.active.detect(&:needs_view?)
-  end
-
-  ##
-  # revoke any authentication tokens
-  def revoke_authentication_tokens
-    access_tokens.not_expired.each(&:revoke)
-  end
-
-  ##
-  # remove personal data - leave the account but purge most personal data
-  def remove_personal_data
-    avatar.purge_later
-
-    self.display_name = "user_#{id}"
-    self.description = ""
-    self.home_lat = nil
-    self.home_lon = nil
-    self.email_valid = false
-    self.new_email = nil
-    self.auth_provider = nil
-    self.auth_uid = nil
-
-    save
-  end
-
-  ##
-  # return a spam score for a user
-  def spam_score
-    changeset_score = changesets.size * 50
-    trace_score = traces.size * 50
-    diary_entry_score = diary_entries.visible.inject(0) { |acc, elem| acc + elem.body.spam_score }
-    diary_comment_score = diary_comments.visible.inject(0) { |acc, elem| acc + elem.body.spam_score }
-    report_score = Report.where(:category => "spam", :issue => issues.with_status("open")).distinct.count(:user_id) * 20
-
-    score = description.spam_score / 4.0
-    score += diary_entries.visible.where("created_at > ?", 1.day.ago).count * 10
-    score += diary_entry_score / diary_entries.visible.length unless diary_entries.visible.empty?
-    score += diary_comment_score / diary_comments.visible.length unless diary_comments.visible.empty?
-    score += report_score
-    score -= changeset_score
-    score -= trace_score
-
-    score.to_i
-  end
-
-  ##
-  # perform a spam check on a user
-  def spam_check
-    suspend! if may_suspend? && spam_score > Settings.spam_threshold
-  end
-
-  ##
-  # return an oauth 2 access token for a specified application
-  def oauth_token(application_id)
-    application = Doorkeeper.config.application_model.find_by(:uid => application_id)
-
-    Doorkeeper.config.access_token_model.find_or_create_for(
-      :application => application,
-      :resource_owner => self,
-      :scopes => application.scopes
-    )
   end
 
   def fingerprint
@@ -406,54 +207,7 @@ class User < ApplicationRecord
       .count
   end
 
-  def max_messages_per_hour
-    account_age_in_seconds = Time.now.utc - created_at
-    account_age_in_hours = account_age_in_seconds / 3600
-    recent_messages = messages.where(:sent_on => Time.now.utc - 3600..).count
-    max_messages = account_age_in_hours.ceil + recent_messages - (active_reports * 10)
-    max_messages.clamp(0, Settings.max_messages_per_hour)
-  end
-
-  def max_follows_per_hour
-    account_age_in_seconds = Time.now.utc - created_at
-    account_age_in_hours = account_age_in_seconds / 3600
-    recent_follows = Follow.where(:following => self).where(:created_at => Time.now.utc - 3600..).count
-    max_follows = account_age_in_hours.ceil + recent_follows - (active_reports * 10)
-    max_follows.clamp(0, Settings.max_follows_per_hour)
-  end
-
-  def max_changeset_comments_per_hour
-    if moderator?
-      Settings.moderator_changeset_comments_per_hour
-    else
-      previous_comments = changeset_comments.limit(Settings.comments_to_max_changeset_comments).count
-      max_comments = previous_comments / Settings.comments_to_max_changeset_comments.to_f * Settings.max_changeset_comments_per_hour
-      max_comments = max_comments.floor.clamp(Settings.initial_changeset_comments_per_hour, Settings.max_changeset_comments_per_hour)
-      max_comments /= 2**active_reports
-      max_comments.floor.clamp(Settings.min_changeset_comments_per_hour, Settings.max_changeset_comments_per_hour)
-    end
-  end
-
-  def deletion_allowed_at
-    unless Settings.user_account_deletion_delay.nil?
-      last_changeset = changesets.reorder(:closed_at => :desc).first
-      return last_changeset.closed_at.utc + Settings.user_account_deletion_delay.hours if last_changeset
-    end
-    creation_time.utc
-  end
-
-  def deletion_allowed?
-    deletion_allowed_at <= Time.now.utc
-  end
-
   private
-
-  def encrypt_password
-    if pass_crypt_confirmation
-      self.pass_crypt, self.pass_salt = PasswordHash.create(pass_crypt)
-      self.pass_crypt_confirmation = nil
-    end
-  end
 
   def update_tile
     self.home_tile = QuadTile.tile_for_point(home_lat, home_lon) if home_location?
