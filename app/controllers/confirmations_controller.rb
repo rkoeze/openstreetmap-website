@@ -96,6 +96,10 @@ class ConfirmationsController < ApplicationController
       end
 
       redirect_to account_path
+    else
+      user = User.visible.find_by(:display_name => params[:display_name])
+
+      redirect_to root_path if user.nil? || user.active?
     end
   end
 
