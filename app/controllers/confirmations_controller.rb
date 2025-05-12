@@ -69,12 +69,14 @@ class ConfirmationsController < ApplicationController
     if request.post?
       self.current_user = User.find_by_token_for(:new_email, params[:confirm_string])
 
-      if !self.current_user
+      if !current_user
         flash[:error] = t(".unknown token")
         redirect_to :action => "confirm_email"
       elsif !current_user.new_email?
         flash[:error] = t(".already active")
         redirect_to :action => "confirm_email"
+      elsif !user.visible?
+        render_unknown_user user.display_name
       elsif current_user.new_email?
         current_user.email = current_user.new_email
         current_user.new_email = nil
