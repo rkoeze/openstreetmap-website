@@ -69,7 +69,10 @@ class ConfirmationsController < ApplicationController
     if request.post?
       self.current_user = User.find_by_token_for(:new_email, params[:confirm_string])
 
-      if current_user&.new_email?
+      if !self.current_user
+        flash[:error] = t(".unknown token")
+        redirect_to :action => "confirm_email"
+      elsif current_user.new_email?
         current_user.email = current_user.new_email
         current_user.new_email = nil
         current_user.email_valid = true
@@ -87,8 +90,6 @@ class ConfirmationsController < ApplicationController
         session[:fingerprint] = current_user.fingerprint
       elsif current_user
         flash[:error] = t ".failure"
-      else
-        flash[:error] = t ".unknown_token"
       end
 
       redirect_to account_path
