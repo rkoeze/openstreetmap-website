@@ -77,7 +77,7 @@ class ConfirmationsController < ApplicationController
         redirect_to :action => "confirm_email"
       elsif !user.visible?
         render_unknown_user user.display_name
-      elsif current_user.new_email?
+      else
         current_user.email = current_user.new_email
         current_user.new_email = nil
         current_user.email_valid = true
@@ -93,9 +93,9 @@ class ConfirmationsController < ApplicationController
         end
         session[:user] = current_user.id
         session[:fingerprint] = current_user.fingerprint
-      end
 
-      redirect_to account_path
+        redirect_to account_path
+      end
     else
       user = User.visible.find_by(:display_name => params[:display_name])
 
