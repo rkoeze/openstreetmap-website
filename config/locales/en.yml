@@ -1839,6 +1839,7 @@ en:
       success: "Confirmed your change of email address!"
       failure: "An email address has already been confirmed with this token."
       unknown_token: "That confirmation code has expired or does not exist."
+      already active: "This email has already been confirmed."
     resend_success_flash:
       confirmation_sent: We've sent a new confirmation note to %{email} and as soon as you confirm your account you'll be able to get mapping.
       whitelist: If you use an antispam system which sends confirmation requests then please make sure you whitelist %{sender} as we are unable to reply to any confirmation requests.

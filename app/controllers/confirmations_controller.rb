@@ -72,6 +72,9 @@ class ConfirmationsController < ApplicationController
       if !self.current_user
         flash[:error] = t(".unknown token")
         redirect_to :action => "confirm_email"
+      elsif !current_user.new_email?
+        flash[:error] = t(".already active")
+        redirect_to :action => "confirm_email"
       elsif current_user.new_email?
         current_user.email = current_user.new_email
         current_user.new_email = nil
