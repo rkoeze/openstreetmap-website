@@ -91,8 +91,6 @@ class ConfirmationsController < ApplicationController
         end
         session[:user] = current_user.id
         session[:fingerprint] = current_user.fingerprint
-      elsif current_user
-        flash[:error] = t ".failure"
       end
 
       redirect_to account_path
