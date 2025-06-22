@@ -30,7 +30,15 @@ RUN apt-get update \
   npm \
   osmosis \
   ca-certificates \
-  firefox-esr
+  firefox-esr \
+  libgl1 \
+  libpci3
+
+# Install Geckodriver (stable version)
+ENV GECKODRIVER_VERSION=0.36.0
+
+RUN curl -sSL "https://github.com/mozilla/geckodriver/releases/download/v${GECKODRIVER_VERSION}/geckodriver-v${GECKODRIVER_VERSION}-linux64.tar.gz" \
+  | tar -xz -C /usr/local/bin
 
 # Install yarn globally
 RUN npm install --global yarn

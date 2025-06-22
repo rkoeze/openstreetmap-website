@@ -13,7 +13,7 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
     config.enable_aria_label = true
   end
 
-  driven_by :selenium, :using => Settings.system_test_headless ? :headless_firefox : :firefox do |options|
+  driven_by :selenium, :using => true ? :headless_firefox : :firefox do |options|
     options.add_preference("intl.accept_languages", "en")
     options.binary = Settings.system_test_firefox_binary if Settings.system_test_firefox_binary
   end
