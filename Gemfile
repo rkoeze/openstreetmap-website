@@ -4,9 +4,6 @@ source "https://rubygems.org"
 gem "rails", "~> 8.0.0"
 gem "turbo-rails"
 
-# Require json for multi_json
-gem "json"
-
 # Use postgres as the database
 gem "pg"
 
@@ -74,7 +71,6 @@ gem "addressable", "~> 2.8"
 gem "rack-uri_sanitizer"
 
 # Omniauth for authentication
-gem "multi_json"
 gem "omniauth", "~> 2.1.3"
 gem "omniauth-apple"
 gem "omniauth-facebook"
