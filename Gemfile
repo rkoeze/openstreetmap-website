@@ -165,7 +165,7 @@ end
 # Gems needed for running tests
 group :test do
   gem "brakeman"
-  gem "capybara", ">= 2.15"
+  gem "capybara"
   gem "erb_lint", :require => false
   gem "factory_bot_rails"
   gem "jwt"

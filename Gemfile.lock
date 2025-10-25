@@ -901,7 +901,7 @@ DEPENDENCIES
   bzip2-ffi
   cancancan
   canonical-rails
-  capybara (>= 2.15)
+  capybara
   config
   connection_pool
   dalli
