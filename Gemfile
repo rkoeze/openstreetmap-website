@@ -140,9 +140,6 @@ gem "inline_svg"
 # Used to validate widths
 gem "unicode-display_width"
 
-# Stop when running for too long
-gem "timeout"
-
 # To run the `file` command and read the output
 gem "open3"
 

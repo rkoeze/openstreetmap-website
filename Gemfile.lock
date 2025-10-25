@@ -985,7 +985,6 @@ DEPENDENCIES
   teaspoon
   teaspoon-mocha (~> 2.3.3)
   terser
-  timeout
   turbo-rails
   unicode-display_width
   uri (< 1.0.0)
